@@ -1089,6 +1089,51 @@ function printDoc() {
 }
 
 
+// ─────────────────────────────────────────────
+// 현재 시트 데이터 반환
+// ─────────────────────────────────────────────
+function getCurrentSheetData() {
+  return {
+    title: document.getElementById('doc-title').value || 'SOMA US — Yoga Sequence',
+    categories: JSON.parse(JSON.stringify(categories))
+  };
+}
+
+// ─────────────────────────────────────────────
+// JSON 파일 저장
+// ─────────────────────────────────────────────
+function exportJSON() {
+  const data = {
+    title: document.getElementById('doc-title').value || 'SOMA US — Yoga Sequence',
+    categories: JSON.parse(JSON.stringify(categories)),
+    imgStore: Object.assign({}, imgStore)
+  };
+  const json = JSON.stringify(data, null, 2);
+  const filename = (data.title || 'sequence').replace(/[\\/:*?"<>|]/g, '_') + '.json';
+  const blob = new Blob([json], { type: 'application/json' });
+
+  // iOS Safari는 a.download + Blob URL 미지원 → navigator.share 폴백
+  if (navigator.share && navigator.canShare) {
+    const file = new File([blob], filename, { type: 'application/json' });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: filename })
+        .catch(() => _exportJSONFallback(blob, filename));
+      return;
+    }
+  }
+  _exportJSONFallback(blob, filename);
+}
+
+function _exportJSONFallback(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+}
+
 // JSON 파일 불러오기
 function importJSON(event) {
   const file = event.target.files[0];
