@@ -509,8 +509,10 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
-  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp }
+  import { getFirestore, collection, addDoc, getDocs, getDoc, deleteDoc, doc, updateDoc, serverTimestamp }
     from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+  import { getStorage, ref, uploadString, getDownloadURL, deleteObject }
+    from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js';
 
   // ⚠️ 보안 주의: Firebase API Key가 소스 코드에 포함되어 있습니다.
   // 단일 HTML 파일 구조 특성상 완전한 은닉은 불가합니다.
@@ -527,17 +529,40 @@
   };
 
   const app = initializeApp(firebaseConfig);
-  const db  = getFirestore(app);
+  const db      = getFirestore(app);
+  const storage = getStorage(app);
   const COL = 'sequences';
 
   // 전역으로 노출
   window._fbSave = async (data) => {
-    const ref = await addDoc(collection(db, COL), {
+    // 1) Firestore 문서 생성 (docId 획득)
+    const docRef = await addDoc(collection(db, COL), {
       title: data.title,
       categories: JSON.stringify(data.categories),
       savedAt: serverTimestamp()
     });
-    return ref.id;
+    const docId = docRef.id;
+
+    // 2) imgStore 이미지를 압축 후 Storage에 업로드
+    const imgUrls = {};
+    if (data.imgStore && Object.keys(data.imgStore).length > 0) {
+      await Promise.all(Object.entries(data.imgStore).map(async ([imgId, dataURL]) => {
+        try {
+          const compressed = await window._compressDataURL(dataURL);
+          const storageRef = ref(storage, `sequences/${docId}/${imgId}`);
+          await uploadString(storageRef, compressed, 'data_url');
+          imgUrls[imgId] = await getDownloadURL(storageRef);
+        } catch (e) {
+          console.warn('이미지 업로드 실패 (imgId:', imgId, '):', e.message);
+        }
+      }));
+      // 3) imgUrls를 Firestore 문서에 업데이트
+      if (Object.keys(imgUrls).length > 0) {
+        await updateDoc(docRef, { imgUrls });
+      }
+    }
+
+    return docId;
   };
 
   window._fbList = async () => {
@@ -546,6 +571,20 @@
   };
 
   window._fbDelete = async (id) => {
+    // Storage 이미지 먼저 삭제 (실패해도 무시)
+    try {
+      const snap = await getDoc(doc(db, COL, id));
+      if (snap.exists()) {
+        const imgUrls = snap.data().imgUrls || {};
+        await Promise.allSettled(
+          Object.keys(imgUrls).map(imgId =>
+            deleteObject(ref(storage, `sequences/${id}/${imgId}`))
+          )
+        );
+      }
+    } catch (e) {
+      console.warn('Storage 이미지 삭제 실패 (무시):', e.message);
+    }
     await deleteDoc(doc(db, COL, id));
   };
 
@@ -1090,6 +1129,30 @@ function printDoc() {
 
 
 // ─────────────────────────────────────────────
+// 이미지 압축 (Storage 업로드 전 사용)
+// maxPx: 최대 가로/세로, quality: JPEG 품질 0~1
+// ─────────────────────────────────────────────
+window._compressDataURL =
+function compressDataURL(dataURL, maxPx = 1200, quality = 0.75) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxPx || height > maxPx) {
+        if (width >= height) { height = Math.round(height * maxPx / width); width = maxPx; }
+        else { width = Math.round(width * maxPx / height); height = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataURL); // 실패 시 원본 유지
+    img.src = dataURL;
+  });
+}
+
+// ─────────────────────────────────────────────
 // 현재 시트 데이터 반환
 // ─────────────────────────────────────────────
 function getCurrentSheetData() {
@@ -1356,6 +1419,7 @@ document.addEventListener('keydown', (e) => {
 async function cloudSave() {
   if (!window._fbReady || !window._fbSave) { alert('Firebase 초기화 중입니다. 잠시 후 다시 시도해 주세요.'); return; }
   const data = getCurrentSheetData();
+  data.imgStore = Object.assign({}, imgStore); // 이미지 포함
   if (!data.title.trim()) { alert('문서 제목을 입력해 주세요.'); return; }
   try {
     const btn = document.querySelector('button[onclick="cloudSave()"]');
@@ -1422,17 +1486,38 @@ function showCloudModal(list) {
   modal.style.display = 'flex';
 }
 
-function cloudLoadItem(id, rawJson) {
+async function cloudLoadItem(id, rawJson) {
   try {
-    const raw = JSON.parse(rawJson);
-    const title = raw.title;
-    const cats  = JSON.parse(raw.categories);
-    const label = title.slice(0, 30);
+    const raw    = JSON.parse(rawJson);
+    const title  = raw.title;
+    const cats   = JSON.parse(raw.categories);
+    const imgUrls = raw.imgUrls || {};
+    const label  = title.slice(0, 30);
+
+    // Storage URL → dataURL 변환 후 imgStore 복원
+    const restoredImgs = {};
+    await Promise.allSettled(
+      Object.entries(imgUrls).map(async ([imgId, url]) => {
+        try {
+          const res  = await fetch(url);
+          const blob = await res.blob();
+          restoredImgs[imgId] = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.warn('이미지 복원 실패 (imgId:', imgId, '):', e.message);
+        }
+      })
+    );
+
     registerSheet(label, () => {
       document.getElementById('doc-title').value = title;
       categories = cats;
       catIdCounter += cats.length;
       cats.forEach(c => { flowIdCounter += c.flows.length; });
+      Object.assign(imgStore, restoredImgs);
       renderEditor();
     });
     const newSh = sheetList[sheetList.length - 1];
