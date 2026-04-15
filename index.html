@@ -1169,7 +1169,15 @@ function restoreFromLocalStorage() {
     flowIdCounter = payload.flowIdCounter || 0;
     Object.assign(sheetStore, payload.sheetStore || {});
 
-    payload.sheetList.forEach(s => {
+    // 중복 ID 제거 (같은 id가 여러 번 있으면 첫 번째만 유지)
+    const seenIds = new Set();
+    const dedupedList = (payload.sheetList || []).filter(s => {
+      if (seenIds.has(s.id)) return false;
+      seenIds.add(s.id);
+      return true;
+    });
+
+    dedupedList.forEach(s => {
       // sheetStore에 저장된 데이터가 있으면 복원 (KIA 포함)
       if (sheetStore[s.id]) {
         sheetList.push({ id: s.id, label: s.label, loader: () => {
