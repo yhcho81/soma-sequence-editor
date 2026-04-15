@@ -374,6 +374,137 @@
       margin: 0;
     }
   }
+
+  /* ── 모바일 반응형 디자인 (max-width: 600px) ── */
+  @media (max-width: 600px) {
+    /* 에디터 UI 여백 축소 */
+    #editor-ui {
+      padding: 72px 12px 60px;
+    }
+
+    /* 섹션 카드 패딩 축소 */
+    .section-card {
+      padding: 16px 14px;
+      margin-bottom: 12px;
+    }
+
+    /* 포즈 카드 그리드: 5열 → 2열 또는 3열 */
+    .cells-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    /* 셀 에디터 텍스트 크기 축소 */
+    .cell-editor .cell-label {
+      font-size: 10px;
+    }
+
+    .cell-editor textarea {
+      font-size: 10px;
+      min-height: 40px;
+    }
+
+    /* 상단 버튼 바 (시트 탭): 줄바꿈 & 스크롤 처리 */
+    #sheet-bar {
+      flex-wrap: wrap;
+      min-height: auto;
+      padding: 6px 8px;
+    }
+
+    #sheet-tab-list {
+      flex-wrap: wrap;
+      max-width: 100%;
+    }
+
+    /* 플로우 블록 패딩 축소 */
+    .flow-block {
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .flow-block-header {
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .flow-block-header span {
+      font-size: 11px;
+      padding: 1px 6px;
+    }
+
+    .flow-block-header input {
+      font-size: 12px;
+    }
+
+    /* 버튼 바 줄바꿈 */
+    .btn-row {
+      gap: 6px;
+    }
+
+    button {
+      padding: 7px 12px;
+      font-size: 12px;
+    }
+
+    /* 모달: 최대 너비 조정 & 좌우 패딩 */
+    #sheet-modal > div {
+      width: 90vw;
+      max-width: 300px;
+      padding: 20px 16px 14px;
+    }
+
+    #cloud-modal > div {
+      width: 90vw;
+      max-width: 380px;
+      padding: 20px 16px 14px;
+    }
+
+    /* 프리뷰 오버레이 패딩 */
+    #preview-overlay {
+      padding: 16px 10px;
+    }
+
+    #preview-close-btn,
+    #preview-print-btn {
+      top: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    #preview-print-btn {
+      right: 70px;
+    }
+
+    /* A4 페이지 프리뷰 축소 */
+    .a4-page {
+      width: 95vw;
+      max-width: 500px;
+      padding: 8mm 6mm;
+      margin-bottom: 10px;
+    }
+
+    .seq-doc-title {
+      font-size: 14pt;
+      margin-bottom: 6mm;
+    }
+
+    .seq-table {
+      font-size: 7pt;
+    }
+
+    .seq-table td, .seq-table th {
+      padding: 0;
+    }
+
+    .row-images td {
+      height: 30mm;
+    }
+
+    .row-desc td {
+      font-size: 6pt;
+      min-height: 10mm;
+    }
+  }
 </style>
 <!-- Firebase SDK -->
 <script type="module">
@@ -381,6 +512,11 @@
   import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp }
     from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
 
+  // ⚠️ 보안 주의: Firebase API Key가 소스 코드에 포함되어 있습니다.
+  // 단일 HTML 파일 구조 특성상 완전한 은닉은 불가합니다.
+  // Firebase Console에서 HTTP Referrer 도메인 제한을 반드시 설정하세요.
+  // 설정 경로: Firebase Console → 프로젝트 설정 → API 키 → 애플리케이션 제한 → HTTP 리퍼러
+  // 허용 도메인 예시: https://yhcho81.github.io/*
   const firebaseConfig = {
     apiKey: "AIzaSyBIfg2VfGj2hXyfRIOfxdAEfX2Cg9Kx2dE",
     authDomain: "soma-us-tools.firebaseapp.com",
@@ -412,6 +548,9 @@
   window._fbDelete = async (id) => {
     await deleteDoc(doc(db, COL, id));
   };
+
+  // Firebase 초기화 완료 플래그
+  window._fbReady = true;
 </script>
 </head>
 <body>
@@ -662,7 +801,7 @@ function renderEditor() {
             <div class="img-upload" onclick="triggerImgUpload('${flow.id}',${ci2})">
               ${imgSrc
                 ? `<img src="${imgSrc}" alt="">`
-                : `<img src="../logo/logo-transparent.png" alt="로고" style="width:60%;height:60%;object-fit:contain;opacity:0.18;">`
+                : `<svg width="60" height="60" viewBox="0 0 100 100" style="opacity:0.18;" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="none" stroke="#ccc" stroke-width="2"/><text x="50" y="55" text-anchor="middle" font-size="20" fill="#ccc" font-family="Arial">+</text></svg>`
               }
               <input type="file" accept="image/*" onchange="handleImgUpload(this,'${flow.id}',${ci2})">
             </div>
@@ -884,7 +1023,7 @@ function buildA4HTML() {
           const imgSrc = cell.imgId && imgStore[cell.imgId];
           html += imgSrc
             ? `<td><img src="${imgSrc}" alt=""></td>`
-            : `<td><div class="img-placeholder"><img src="../logo/logo-transparent.png" alt="" style="width:50%;height:50%;object-fit:contain;opacity:0.15;"></div></td>`;
+            : `<td><div class="img-placeholder"><svg width="50" height="50" viewBox="0 0 100 100" style="opacity:0.15;" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="none" stroke="#ccc" stroke-width="2"/><text x="50" y="55" text-anchor="middle" font-size="20" fill="#ccc" font-family="Arial">+</text></svg></div></td>`;
         }
         html += `</tr>`;
 
@@ -1170,7 +1309,7 @@ document.addEventListener('keydown', (e) => {
 // 클라우드 저장 / 불러오기
 // ─────────────────────────────────────────────
 async function cloudSave() {
-  if (!window._fbSave) { alert('Firebase 초기화 중입니다. 잠시 후 다시 시도해 주세요.'); return; }
+  if (!window._fbReady || !window._fbSave) { alert('Firebase 초기화 중입니다. 잠시 후 다시 시도해 주세요.'); return; }
   const data = getCurrentSheetData();
   if (!data.title.trim()) { alert('문서 제목을 입력해 주세요.'); return; }
   try {
@@ -1191,7 +1330,7 @@ async function cloudSave() {
 }
 
 async function cloudLoad() {
-  if (!window._fbList) { alert('Firebase 초기화 중입니다. 잠시 후 다시 시도해 주세요.'); return; }
+  if (!window._fbReady || !window._fbList) { alert('Firebase 초기화 중입니다. 잠시 후 다시 시도해 주세요.'); return; }
   try {
     const list = await window._fbList();
     showCloudModal(list);
