@@ -468,8 +468,19 @@
           '경침테라피'      : '경침 테라피',
         };
         Object.keys(KIA_SEQUENCE_DATA).forEach(key => {
-          registerSheet(labelMap[key] || key, () => loadKiaSheet(key));
+          const fixedId = 'kia_' + key.replace(/\s/g, '_');
+          const sheetId = registerSheet(labelMap[key] || key, () => loadKiaSheet(key), fixedId);
+          // sheetStore에 없으면(첫 방문) 즉시 로드해서 저장
+          if (!sheetStore[fixedId]) {
+            loadKiaSheet(key);
+            sheetStore[fixedId] = {
+              title: labelMap[key] || key,
+              cats: JSON.parse(JSON.stringify(categories)),
+              catIdCounter, flowIdCounter
+            };
+          }
         });
+        renderSheetBar();
       }
     };
     document.head.appendChild(s);
@@ -1159,7 +1170,7 @@ function restoreFromLocalStorage() {
     Object.assign(sheetStore, payload.sheetStore || {});
 
     payload.sheetList.forEach(s => {
-      // KIA 시트는 kia-sequence-data.js 로드 후 자동 등록되므로 스킵
+      // sheetStore에 저장된 데이터가 있으면 복원 (KIA 포함)
       if (sheetStore[s.id]) {
         sheetList.push({ id: s.id, label: s.label, loader: () => {
           const saved = sheetStore[s.id];
@@ -1196,11 +1207,13 @@ let sheetCounter = 0;
 // 시트 저장소: sheetId → {title, cats}
 const sheetStore = {};
 
-function registerSheet(label, loader) {
-  sheetCounter++;
-  const id = `sh${sheetCounter}`;
+function registerSheet(label, loader, fixedId) {
+  const id = fixedId || (() => { sheetCounter++; return `sh${sheetCounter}`; })();
+  // 이미 같은 ID가 있으면 중복 등록 방지
+  if (sheetList.find(s => s.id === id)) return id;
   sheetList.push({ id, label, loader });
   renderSheetBar();
+  return id;
 }
 
 function renderSheetBar() {
