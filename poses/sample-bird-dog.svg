@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="white"/>
+  <g fill="#1a1a1a" stroke="#1a1a1a" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 머리 -->
+    <circle cx="52" cy="82" r="11" fill="#1a1a1a"/>
+    <!-- 목 → 어깨 -->
+    <line x1="52" y1="93" x2="70" y2="108" stroke-width="7" fill="none"/>
+    <!-- 몸통 (어깨 → 엉덩이) -->
+    <line x1="70" y1="108" x2="118" y2="114" stroke-width="8" fill="none"/>
+    <!-- 앞으로 뻗은 오른팔 -->
+    <line x1="70" y1="108" x2="22" y2="96" stroke-width="7" fill="none"/>
+    <!-- 지면 짚는 왼팔 (어깨 → 손) -->
+    <line x1="70" y1="108" x2="65" y2="162" stroke-width="7" fill="none"/>
+    <!-- 지면 짚는 오른 무릎 (엉덩이 → 무릎) -->
+    <line x1="118" y1="114" x2="122" y2="162" stroke-width="8" fill="none"/>
+    <!-- 뒤로 뻗은 왼다리 (엉덩이 → 발) -->
+    <line x1="118" y1="114" x2="172" y2="80" stroke-width="8" fill="none"/>
+    <!-- 바닥 선 (매트) -->
+    <line x1="30" y1="165" x2="170" y2="165" stroke-width="3" stroke-dasharray="6,4" fill="none" stroke="#aaa"/>
+  </g>
+</svg>

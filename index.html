@@ -193,9 +193,9 @@
     background: #2A2A2A;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 14px;
-    padding: 14px 20px;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 10px 20px;
     z-index: 100;
   }
   #action-bar button {
@@ -397,16 +397,27 @@
 
   <div class="btn-row" style="margin-bottom: 80px;">
     <button class="btn-primary" onclick="addCategory()">+ 카테고리 추가</button>
-    <button class="btn-ghost" onclick="loadSample()">샘플 데이터 불러오기</button>
+
   </div>
 </div>
 
 <!-- 시트 관리 바 -->
-<div id="sheet-bar" style="position:fixed;top:0;left:0;right:0;background:#2A2A2A;color:#E8DBBF;padding:8px 16px;z-index:200;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:44px;">
-  <span style="font-weight:700;color:#7B8C65;white-space:nowrap;">시퀀스 시트</span>
-  <span style="color:#555;">|</span>
-  <div id="sheet-tab-list" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;flex:1;"></div>
-  <button onclick="addNewSheet()" title="새 시트 추가" style="background:#7B8C65;color:#fff;border:none;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0;">+</button>
+<div id="sheet-bar" style="position:fixed;top:0;left:0;right:0;background:#2A2A2A;color:#E8DBBF;padding:0 12px;z-index:200;font-size:13px;display:flex;align-items:center;gap:8px;min-height:48px;">
+  <!-- 시트 탭 영역 -->
+  <span style="font-weight:700;color:#7B8C65;white-space:nowrap;font-size:12px;">SHEETS</span>
+  <div id="sheet-tab-list" style="display:flex;gap:5px;align-items:center;flex:1;overflow-x:auto;padding:6px 0;"></div>
+  <button onclick="addNewSheet()" title="새 시트 추가 (시트 이름 입력)" style="background:#3a3a3a;color:#aaa;border:1px dashed #555;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:16px;line-height:1;flex-shrink:0;">+</button>
+  <!-- 구분선 -->
+  <div style="width:1px;height:28px;background:#444;flex-shrink:0;margin:0 4px;"></div>
+  <!-- 저장/불러오기 -->
+  <label id="btn-load" title="저장한 JSON 파일 불러오기" style="background:#3a3a3a;color:#ccc;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px;">
+    📂 불러오기
+    <input type="file" accept=".json" style="display:none;" onchange="importJSON(event)">
+  </label>
+  <button id="btn-save" onclick="exportJSON()" title="JSON 파일로 저장 (Ctrl+S)" style="background:#7B8C65;color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px;">
+    💾 저장
+  </button>
+  <span id="dirty-indicator" style="font-size:11px;color:#f0a050;white-space:nowrap;flex-shrink:0;display:none;">● 미저장</span>
 </div>
 
 <!-- 시트 이름 편집 모달 -->
@@ -428,18 +439,8 @@
      하단 액션 바
 ═══════════════════════════════════════════ -->
 <div id="action-bar">
-  <div style="display:flex;gap:8px;align-items:center;">
-    <button class="btn-ghost" onclick="exportJSON()" title="현재 시트 전체를 JSON 파일로 저장">💾 JSON 저장</button>
-    <label class="btn-ghost" style="cursor:pointer;margin:0;" title="저장한 JSON 파일 불러오기">
-      📂 불러오기
-      <input type="file" accept=".json" style="display:none;" onchange="importJSON(event)">
-    </label>
-    <span id="autosave-indicator" style="font-size:11px;color:#aaa;margin-left:4px;"></span>
-  </div>
-  <div style="display:flex;gap:8px;">
-    <button class="btn-secondary" onclick="showPreview()">🔍 프리뷰 보기</button>
-    <button class="btn-primary" onclick="printDoc()">🖨️ 인쇄 / PDF 저장</button>
-  </div>
+  <button class="btn-secondary" onclick="showPreview()">🔍 프리뷰 보기</button>
+  <button class="btn-primary" onclick="printDoc()">🖨️ 인쇄 / PDF 저장</button>
 </div>
 
 <!-- ═══════════════════════════════════════════
@@ -454,27 +455,6 @@
 <!-- 인쇄 전용 영역 -->
 <div id="print-area" style="display:none;"></div>
 
-<!-- kia-sequence-data.js 로드 (없으면 조용히 무시) -->
-<script>
-  (function() {
-    const s = document.createElement('script');
-    s.src = 'kia-sequence-data.js';
-    s.onload = function() {
-      if (typeof KIA_SEQUENCE_DATA !== 'undefined') {
-        // KIA 시트 3개를 자동 등록
-        const labelMap = {
-          '1박2일 40분'    : '40분 세션',
-          '1박2일 모닝60분': '모닝 60분',
-          '경침테라피'      : '경침 테라피',
-        };
-        Object.keys(KIA_SEQUENCE_DATA).forEach(key => {
-          registerSheet(labelMap[key] || key, () => loadKiaSheet(key));
-        });
-      }
-    };
-    document.head.appendChild(s);
-  })();
-</script>
 
 <script>
 // ─────────────────────────────────────────────
@@ -554,7 +534,7 @@ function removeCells(catId, flowId) {
 // 에디터 렌더링
 // ─────────────────────────────────────────────
 function renderEditor() {
-  scheduleAutosave();
+  markDirty();
   const container = document.getElementById('categories-container');
   container.innerHTML = '';
 
@@ -638,7 +618,7 @@ function renderEditor() {
             <div class="img-upload" onclick="triggerImgUpload('${flow.id}',${ci2})">
               ${imgSrc
                 ? `<img src="${imgSrc}" alt="">`
-                : `<div class="upload-hint">클릭 또는<br>드래그 & 드롭</div>`
+                : `<img src="../logo/logo-transparent.png" alt="로고" style="width:60%;height:60%;object-fit:contain;opacity:0.18;">`
               }
               <input type="file" accept="image/*" onchange="handleImgUpload(this,'${flow.id}',${ci2})">
             </div>
@@ -777,13 +757,11 @@ function handleImgUpload(input, flowId, cellIdx) {
   const reader = new FileReader();
   reader.onload = e => {
     const dataURL = e.target.result;
-    // 고유 ID 생성 (타임스탬프 + 랜덤)
     const imgId = `img_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
     imgStore[imgId] = dataURL;
     for (const cat of categories) {
       const flow = cat.flows.find(f => f.id === flowId);
       if (flow && flow.cells[cellIdx]) {
-        // 기존 imgId 가 있으면 imgStore에서 제거 (메모리 절약)
         const oldId = flow.cells[cellIdx].imgId;
         if (oldId && oldId !== imgId) delete imgStore[oldId];
         flow.cells[cellIdx].imgId = imgId;
@@ -862,7 +840,7 @@ function buildA4HTML() {
           const imgSrc = cell.imgId && imgStore[cell.imgId];
           html += imgSrc
             ? `<td><img src="${imgSrc}" alt=""></td>`
-            : `<td><div class="img-placeholder">이미지</div></td>`;
+            : `<td><div class="img-placeholder"><img src="../logo/logo-transparent.png" alt="" style="width:50%;height:50%;object-fit:contain;opacity:0.15;"></div></td>`;
         }
         html += `</tr>`;
 
@@ -927,199 +905,6 @@ function printDoc() {
   }, 500);
 }
 
-// ─────────────────────────────────────────────
-// 샘플 데이터
-// ─────────────────────────────────────────────
-function cell(desc) { return { imgId: null, desc }; }
-
-function loadSample() {
-  catIdCounter = 0;
-  flowIdCounter = 0;
-  categories = [];
-
-  // ── Warm Up ──────────────────────────────────
-  catIdCounter++;
-  const c1 = { id:`c${catIdCounter}`, title:'Warm Up — 워밍업', flows:[] };
-
-  flowIdCounter++;
-  c1.flows.push({
-    id:`f${flowIdCounter}`, catId:c1.id,
-    title:'Breath & Ground — 호흡과 착지',
-    cells:[
-      cell('Constructive Rest\n등을 대고 누워 무릎을 세운다. 자연스러운 호흡을 3분간 관찰.'),
-      cell('Diaphragm Breath\n배꼽 위에 손을 얹고 복식호흡. 들숨 4초, 날숨 6초 × 6회.'),
-      cell('Pelvic Clock\n골반을 12→6→3→9시 방향으로 천천히 돌리며 바닥 접촉 느끼기.'),
-      cell('Knee-to-Chest\n한 무릎씩 가슴으로 당기며 요추 이완. 좌·우 각 30초.'),
-      cell('Supine Twist\n무릎을 한쪽으로 내리며 척추 회전. 어깨는 바닥 유지. 좌·우 각 45초.'),
-    ]
-  });
-
-  flowIdCounter++;
-  c1.flows.push({
-    id:`f${flowIdCounter}`, catId:c1.id,
-    title:'Spine Awakening — 척추 깨우기',
-    cells:[
-      cell('Cat-Cow\n네발기기 자세에서 들숨에 등 오목, 날숨에 등 볼록. 8회 반복.'),
-      cell('Thread the Needle\n한 팔을 바닥으로 밀어 흉추 회전. 좌·우 각 30초, 2세트.'),
-      cell('Child\'s Pose\n엉덩이를 발뒤꿈치에 앉혀 팔을 앞으로 뻗기. 흉추·광배 이완. 1분.'),
-      cell('Downward Dog\n손발을 짚고 엉덩이를 높이 들어 역 V자. 발뒤꿈치 교대로 누르기. 45초.'),
-      cell('Puppy Pose\n무릎을 고정하고 가슴을 바닥으로 내리며 흉추 신전. 1분.'),
-    ]
-  });
-
-  categories.push(c1);
-
-  // ── Main Flow ─────────────────────────────────
-  catIdCounter++;
-  const c2 = { id:`c${catIdCounter}`, title:'Main Flow — 메인 플로우', flows:[] };
-
-  flowIdCounter++;
-  c2.flows.push({
-    id:`f${flowIdCounter}`, catId:c2.id,
-    title:'Sun Salutation A — 태양경배 A',
-    cells:[
-      cell('Mountain Pose\n발을 모아 서서 발바닥 전체로 땅을 느낀다. 숨 들이마시며 팔을 위로.'),
-      cell('Standing Forward Fold\n날숨에 상체를 앞으로 접는다. 무릎을 살짝 구부려도 좋다.'),
-      cell('Half Lift\n손을 정강이에 얹고 척추를 길게. 시선은 앞 바닥.'),
-      cell('Plank → Chaturanga\n발을 뒤로 보내 플랭크. 날숨에 팔꿈치를 90°로 굽히며 천천히 내려가기.'),
-      cell('Upward Dog\n발등을 바닥에 두고 팔을 펴 가슴을 열기. 허벅지는 바닥에서 뗀다.'),
-    ]
-  });
-
-  flowIdCounter++;
-  c2.flows.push({
-    id:`f${flowIdCounter}`, catId:c2.id,
-    title:'Standing Sequence — 스탠딩 시퀀스',
-    cells:[
-      cell('Warrior I\n한 발을 앞으로, 뒷발 45°. 앞 무릎 90°. 팔을 위로 뻗어 가슴 열기. 45초.'),
-      cell('Warrior II\n양팔을 옆으로 벌리고 시선은 앞 손끝. 앞 허벅지 바닥과 평행. 45초.'),
-      cell('Triangle Pose\n앞 다리를 곧게 펴고 상체를 측면으로 기울여 손을 정강이 또는 블록에. 30초.'),
-      cell('Side Angle\n앞 팔꿈치를 앞 무릎에 얹고 뒷팔을 귀 옆으로. 옆구리 길게 늘이기. 30초.'),
-      cell('Pyramid Pose\n발을 좁혀 앞으로, 상체를 앞 다리 위로 접기. 엉덩이 정면 향하게. 45초.'),
-    ]
-  });
-
-  flowIdCounter++;
-  c2.flows.push({
-    id:`f${flowIdCounter}`, catId:c2.id,
-    title:'Balance Series — 밸런스 시리즈',
-    cells:[
-      cell('Tree Pose\n한 발을 반대쪽 허벅지 안쪽에. 손은 합장 또는 위로. 코어 활성화. 45초.'),
-      cell('Warrior III\n상체와 뒷다리를 수평으로 들어 T자. 시선은 바닥. 30초.'),
-      cell('Half Moon\n한 손을 바닥 또는 블록에, 뒷다리를 엉덩이 높이로 들기. 가슴을 열기. 30초.'),
-      cell('Eagle Pose\n한 다리를 반대 허벅지 위로 감고, 팔도 교차하여 감기. 시선 고정. 30초.'),
-      cell('Standing Split\n상체를 내리며 한 다리를 천장으로. 양손은 바닥. 엉덩이 수평 유지. 30초.'),
-    ]
-  });
-
-  categories.push(c2);
-
-  // ── Cool Down ─────────────────────────────────
-  catIdCounter++;
-  const c3 = { id:`c${catIdCounter}`, title:'Cool Down — 쿨다운', flows:[] };
-
-  flowIdCounter++;
-  c3.flows.push({
-    id:`f${flowIdCounter}`, catId:c3.id,
-    title:'Floor Release — 바닥 이완',
-    cells:[
-      cell('Pigeon Pose\n앞 무릎을 구부려 바닥에 두고 뒷다리 길게. 고관절 외회전 이완. 각 2분.'),
-      cell('Seated Forward Fold\n다리를 앞으로 뻗고 상체를 천천히 접기. 등을 둥글게 말아도 좋다. 2분.'),
-      cell('Butterfly\n발바닥을 서로 맞대고 무릎을 옆으로. 상체를 앞으로 기울이기. 1분 30초.'),
-      cell('Supine Figure 4\n누워서 한 발목을 반대쪽 무릎 위에 올리고 허벅지 당기기. 각 90초.'),
-      cell('Legs Up the Wall\n벽에 엉덩이를 붙이고 다리를 위로 뻗기. 신경계 이완. 3~5분.'),
-    ]
-  });
-
-  flowIdCounter++;
-  c3.flows.push({
-    id:`f${flowIdCounter}`, catId:c3.id,
-    title:'Savasana — 사바사나',
-    cells:[
-      cell('Body Scan\n눈을 감고 발끝부터 머리까지 각 부위에 주의를 옮기며 긴장 해소.'),
-      cell('Natural Breath\n호흡을 조절하지 않고 있는 그대로 관찰. 신경계 부교감 활성화.'),
-      cell('Full Release\n팔다리를 완전히 늘어뜨리고 몸의 무게를 바닥에 맡긴다.'),
-      cell('Rest (5min)\n완전한 정적 속에 머문다. 생각이 와도 판단 없이 흘려보내기.'),
-      cell('Return\n손가락·발가락을 천천히 움직이고 옆으로 돌아 무릎을 당긴 후 일어나기.'),
-    ]
-  });
-
-  categories.push(c3);
-
-  document.getElementById('doc-title').value = 'SOMA US — Spring Yoga Sequence';
-  renderEditor();
-}
-
-// ─────────────────────────────────────────────
-// 저장 / 불러오기
-// ─────────────────────────────────────────────
-const LS_KEY = 'soma-sequence-editor-v1';
-let autosaveTimer = null;
-
-// 현재 활성 시트 상태를 객체로 반환
-function getCurrentSheetData() {
-  return {
-    title: document.getElementById('doc-title').value,
-    categories: JSON.parse(JSON.stringify(categories))
-  };
-}
-
-// 전체 세션(모든 시트) 저장 데이터 구성
-function buildSavePayload() {
-  // 현재 시트 먼저 store에 반영
-  if (activeSheetId) {
-    sheetStore[activeSheetId] = {
-      title: document.getElementById('doc-title').value,
-      cats: JSON.parse(JSON.stringify(categories)),
-      catIdCounter,
-      flowIdCounter,
-    };
-  }
-  return {
-    version: 1,
-    savedAt: new Date().toISOString(),
-    activeSheetId,
-    sheetList: sheetList.map(s => ({ id: s.id, label: s.label })),
-    sheetStore,
-    imgStore,
-    catIdCounter,
-    flowIdCounter,
-  };
-}
-
-// localStorage 자동저장 (편집 후 2초 뒤)
-function scheduleAutosave() {
-  clearTimeout(autosaveTimer);
-  autosaveTimer = setTimeout(() => {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(buildSavePayload()));
-      const el = document.getElementById('autosave-indicator');
-      if (el) {
-        el.textContent = '자동저장 완료 ' + new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'});
-        clearTimeout(el._timer);
-        el._timer = setTimeout(() => { el.textContent = ''; }, 3000);
-      }
-    } catch(e) {}
-  }, 2000);
-}
-
-// JSON 파일로 내보내기 (현재 시트 + 이미지 포함)
-function exportJSON() {
-  const data = getCurrentSheetData();
-  // 현재 시트에서 참조하는 imgId만 추출해서 포함
-  const usedImgs = {};
-  data.categories.forEach(cat => cat.flows.forEach(flow => flow.cells.forEach(cell => {
-    if (cell.imgId && imgStore[cell.imgId]) usedImgs[cell.imgId] = imgStore[cell.imgId];
-  })));
-  data.imgStore = usedImgs;
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  const safeName = (data.title || 'sequence').replace(/[\\/:*?"<>|]/g, '_').slice(0, 60);
-  a.download = `${safeName}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
 
 // JSON 파일 불러오기
 function importJSON(event) {
@@ -1129,8 +914,10 @@ function importJSON(event) {
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target.result);
-      // 이미지 복원
-      if (data.imgStore) Object.assign(imgStore, data.imgStore);
+      // 이미지 복원 — 메모리에만 저장
+      if (data.imgStore) {
+        Object.assign(imgStore, data.imgStore);
+      }
       // 단일 시트 형식 { title, categories }
       const title = data.title || file.name.replace('.json','');
       const cats  = data.categories || [];
@@ -1139,7 +926,6 @@ function importJSON(event) {
       registerSheet(label, () => {
         document.getElementById('doc-title').value = title;
         categories = cats;
-        // id 충돌 방지: 모든 cat/flow id 재발급
         catIdCounter += cats.length;
         cats.forEach(c => { flowIdCounter += c.flows.length; });
         renderEditor();
@@ -1150,51 +936,11 @@ function importJSON(event) {
       alert('JSON 파싱 오류: ' + err.message);
     }
     event.target.value = '';
+    markClean();
   };
   reader.readAsText(file);
 }
 
-// localStorage 복원
-function restoreFromLocalStorage() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return false;
-    const payload = JSON.parse(raw);
-    if (!payload.version || !payload.sheetList) return false;
-
-    // 시트 목록 복원 (KIA 외 커스텀 시트)
-    catIdCounter  = payload.catIdCounter  || 0;
-    flowIdCounter = payload.flowIdCounter || 0;
-    Object.assign(sheetStore, payload.sheetStore || {});
-    Object.assign(imgStore,   payload.imgStore   || {});
-
-    payload.sheetList.forEach(s => {
-      // KIA 시트는 kia-sequence-data.js 로드 후 자동 등록되므로 스킵
-      if (sheetStore[s.id]) {
-        sheetList.push({ id: s.id, label: s.label, loader: () => {
-          const saved = sheetStore[s.id];
-          categories = saved.cats || [];
-          catIdCounter = saved.catIdCounter || catIdCounter;
-          flowIdCounter = saved.flowIdCounter || flowIdCounter;
-          document.getElementById('doc-title').value = saved.title || s.label;
-          renderEditor();
-        }});
-      }
-    });
-
-    if (payload.activeSheetId && sheetStore[payload.activeSheetId]) {
-      activeSheetId = null;
-      const target = sheetList.find(s => s.id === payload.activeSheetId);
-      if (target) {
-        switchSheet(target.id);
-        return true;
-      }
-    }
-    return sheetList.length > 0;
-  } catch(e) {
-    return false;
-  }
-}
 
 // ─────────────────────────────────────────────
 // 시트 관리 시스템
@@ -1207,6 +953,8 @@ let sheetCounter = 0;
 const sheetStore = {};
 
 function registerSheet(label, loader) {
+  // 같은 라벨이 이미 있으면 중복 등록 방지
+  if (sheetList.some(s => s.label === label)) return;
   sheetCounter++;
   const id = `sh${sheetCounter}`;
   sheetList.push({ id, label, loader });
@@ -1346,69 +1094,46 @@ function confirmSheetModal() {
 // ─────────────────────────────────────────────
 // KIA 시퀀스 데이터 로드
 // ─────────────────────────────────────────────
-function loadKiaSheet(sheetName) {
-  if (typeof KIA_SEQUENCE_DATA === 'undefined') {
-    alert('kia-sequence-data.js 파일이 로드되지 않았습니다.');
-    return;
-  }
-  const sheetData = KIA_SEQUENCE_DATA[sheetName];
-  if (!sheetData) {
-    alert(`시트 "${sheetName}" 를 찾을 수 없습니다.`);
-    return;
-  }
+// ─────────────────────────────────────────────
+// 미저장 변경 표시
+// ─────────────────────────────────────────────
+function markDirty() {
+  const el = document.getElementById('dirty-indicator');
+  if (el) el.style.display = 'inline';
+}
 
-  catIdCounter = 0;
-  flowIdCounter = 0;
-  categories = [];
-
-  for (const kiacat of sheetData.categories) {
-    catIdCounter++;
-    const cat = { id: `c${catIdCounter}`, title: kiacat.title, flows: [] };
-
-    for (const kiaflow of kiacat.flows) {
-      flowIdCounter++;
-      const cells = kiaflow.cells.map(c => ({ imgId: null, desc: c.desc || '' }));
-      cat.flows.push({ id: `f${flowIdCounter}`, catId: cat.id, title: kiaflow.title, cells });
-    }
-
-    // 플로우가 없는 카테고리도 빈 플로우 하나 추가
-    if (cat.flows.length === 0) {
-      flowIdCounter++;
-      cat.flows.push({ id: `f${flowIdCounter}`, catId: cat.id, title: kiacat.title, cells: [{imgId:null,desc:''},{imgId:null,desc:''},{imgId:null,desc:''},{imgId:null,desc:''},{imgId:null,desc:''}] });
-    }
-
-    categories.push(cat);
-  }
-
-  document.getElementById('doc-title').value = sheetData.title;
-  renderEditor();
+function markClean() {
+  const el = document.getElementById('dirty-indicator');
+  if (el) el.style.display = 'none';
 }
 
 // ─────────────────────────────────────────────
 // 초기화
 // ─────────────────────────────────────────────
-// 모달 바깥 클릭 시 닫기
 document.getElementById('sheet-modal').addEventListener('click', function(e) {
   if (e.target === this) closeSheetModal();
 });
 
-window.addEventListener('DOMContentLoaded', () => {
-  // localStorage 복원 시도
-  const restored = restoreFromLocalStorage();
-
-  if (!restored) {
-    // 복원 실패 → 샘플 시트로 시작
-    registerSheet('샘플 시퀀스', () => {
-      loadSample();
-      document.getElementById('doc-title').value = 'SOMA US — Spring Yoga Sequence';
-    });
-    switchSheet(sheetList[0].id);
-  } else {
-    renderSheetBar();
+// Ctrl+S 단축키 → JSON 저장
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    exportJSON();
   }
+});
 
-  // doc-title 변경 시에도 자동저장
-  document.getElementById('doc-title').addEventListener('input', scheduleAutosave);
+window.addEventListener('DOMContentLoaded', () => {
+  // 빈 시트 하나로 시작
+  registerSheet('새 시퀀스', () => {
+    catIdCounter = 0; flowIdCounter = 0; categories = [];
+    document.getElementById('doc-title').value = 'SOMA US — Yoga Sequence';
+    addCategory();
+  });
+  switchSheet(sheetList[0].id);
+  markClean();
+
+  // 문서 제목 변경 시 미저장 표시
+  document.getElementById('doc-title').addEventListener('input', markDirty);
 });
 </script>
 </body>
