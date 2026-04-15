@@ -375,6 +375,44 @@
     }
   }
 </style>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
+  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp }
+    from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBIfg2VfGj2hXyfRIOfxdAEfX2Cg9Kx2dE",
+    authDomain: "soma-us-tools.firebaseapp.com",
+    projectId: "soma-us-tools",
+    storageBucket: "soma-us-tools.firebasestorage.app",
+    messagingSenderId: "1083840033205",
+    appId: "1:1083840033205:web:38da897b2d3ac33baa69fc"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+  const COL = 'sequences';
+
+  // 전역으로 노출
+  window._fbSave = async (data) => {
+    const ref = await addDoc(collection(db, COL), {
+      title: data.title,
+      categories: JSON.stringify(data.categories),
+      savedAt: serverTimestamp()
+    });
+    return ref.id;
+  };
+
+  window._fbList = async () => {
+    const snap = await getDocs(collection(db, COL));
+    return snap.docs.map(d => ({ id: d.id, title: d.data().title, savedAt: d.data().savedAt, raw: d.data() }));
+  };
+
+  window._fbDelete = async (id) => {
+    await deleteDoc(doc(db, COL, id));
+  };
+</script>
 </head>
 <body>
 
@@ -414,8 +452,14 @@
     📂 불러오기
     <input type="file" accept=".json" style="display:none;" onchange="importJSON(event)">
   </label>
-  <button id="btn-save" onclick="exportJSON()" title="JSON 파일로 저장 (Ctrl+S)" style="background:#7B8C65;color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px;">
-    💾 저장
+  <button id="btn-save" onclick="exportJSON()" title="JSON 파일로 저장 (Ctrl+S)" style="background:#3a3a3a;color:#ccc;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px;">
+    💾 JSON
+  </button>
+  <button onclick="cloudSave()" title="클라우드에 저장" style="background:#7B8C65;color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px;">
+    ☁️ 저장
+  </button>
+  <button onclick="cloudLoad()" title="클라우드에서 불러오기" style="background:#4a6fa5;color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px;">
+    ☁️ 목록
   </button>
   <span id="dirty-indicator" style="font-size:11px;color:#f0a050;white-space:nowrap;flex-shrink:0;display:none;">● 미저장</span>
 </div>
@@ -1121,6 +1165,114 @@ document.addEventListener('keydown', (e) => {
     exportJSON();
   }
 });
+
+// ─────────────────────────────────────────────
+// 클라우드 저장 / 불러오기
+// ─────────────────────────────────────────────
+async function cloudSave() {
+  if (!window._fbSave) { alert('Firebase 초기화 중입니다. 잠시 후 다시 시도해 주세요.'); return; }
+  const data = getCurrentSheetData();
+  if (!data.title.trim()) { alert('문서 제목을 입력해 주세요.'); return; }
+  try {
+    const btn = document.querySelector('button[onclick="cloudSave()"]');
+    btn.textContent = '저장 중…';
+    btn.disabled = true;
+    await window._fbSave(data);
+    markClean();
+    btn.textContent = '☁️ 저장';
+    btn.disabled = false;
+    alert(`"${data.title}" 저장 완료!`);
+  } catch(e) {
+    alert('저장 실패: ' + e.message);
+    const btn = document.querySelector('button[onclick="cloudSave()"]');
+    btn.textContent = '☁️ 저장';
+    btn.disabled = false;
+  }
+}
+
+async function cloudLoad() {
+  if (!window._fbList) { alert('Firebase 초기화 중입니다. 잠시 후 다시 시도해 주세요.'); return; }
+  try {
+    const list = await window._fbList();
+    showCloudModal(list);
+  } catch(e) {
+    alert('목록 불러오기 실패: ' + e.message);
+  }
+}
+
+function showCloudModal(list) {
+  let modal = document.getElementById('cloud-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'cloud-modal';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:600;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:28px;width:420px;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+        <h3 style="font-size:15px;color:#2A2A2A;margin-bottom:16px;">☁️ 클라우드 저장 목록</h3>
+        <div id="cloud-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;min-height:60px;"></div>
+        <button onclick="document.getElementById('cloud-modal').style.display='none'"
+          style="margin-top:16px;background:#eee;border:none;padding:8px;border-radius:6px;cursor:pointer;font-size:13px;">닫기</button>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+
+  const listEl = modal.querySelector('#cloud-list');
+  if (list.length === 0) {
+    listEl.innerHTML = '<p style="color:#aaa;font-size:13px;text-align:center;padding:20px 0;">저장된 시퀀스가 없습니다.</p>';
+  } else {
+    listEl.innerHTML = list.map(item => {
+      const date = item.savedAt?.toDate ? item.savedAt.toDate().toLocaleString('ko-KR') : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #eee;border-radius:8px;">
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;color:#2A2A2A;">${esc(item.title)}</div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px;">${date}</div>
+        </div>
+        <button onclick="cloudLoadItem('${item.id}', ${JSON.stringify(JSON.stringify(item.raw))})"
+          style="background:#7B8C65;color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;">불러오기</button>
+        <button onclick="cloudDeleteItem('${item.id}', this)"
+          style="background:#eee;color:#888;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;">삭제</button>
+      </div>`;
+    }).join('');
+  }
+
+  modal.style.display = 'flex';
+}
+
+function cloudLoadItem(id, rawJson) {
+  try {
+    const raw = JSON.parse(rawJson);
+    const title = raw.title;
+    const cats  = JSON.parse(raw.categories);
+    const label = title.slice(0, 30);
+    registerSheet(label, () => {
+      document.getElementById('doc-title').value = title;
+      categories = cats;
+      catIdCounter += cats.length;
+      cats.forEach(c => { flowIdCounter += c.flows.length; });
+      renderEditor();
+    });
+    const newSh = sheetList[sheetList.length - 1];
+    switchSheet(newSh.id);
+    markClean();
+    document.getElementById('cloud-modal').style.display = 'none';
+  } catch(e) {
+    alert('불러오기 실패: ' + e.message);
+  }
+}
+
+async function cloudDeleteItem(id, btn) {
+  if (!confirm('삭제하시겠습니까?')) return;
+  try {
+    btn.textContent = '…';
+    btn.disabled = true;
+    await window._fbDelete(id);
+    // 목록 새로고침
+    const list = await window._fbList();
+    showCloudModal(list);
+  } catch(e) {
+    alert('삭제 실패: ' + e.message);
+  }
+}
 
 window.addEventListener('DOMContentLoaded', () => {
   // 빈 시트 하나로 시작
